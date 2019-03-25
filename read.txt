@@ -1,1 +1,5 @@
-kubectl run -it --rm --restart=Never --image=infoblox/dnstools:latest dnstools
+$ kubectl run dnstools -it --rm --restart=Never --image=infoblox/dnstools:latest
+$ kubectl run nginx --replicas=3 --labels="run=load-balancer-example" --image=nginx  --port=80
+$ kubectl expose deployment nginx --type=NodePort --name=example-service
+$ kubectl describe svc example-service
+

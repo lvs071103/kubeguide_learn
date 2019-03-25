@@ -3,3 +3,6 @@ $ kubectl run nginx --replicas=3 --labels="run=load-balancer-example" --image=ng
 $ kubectl expose deployment nginx --type=NodePort --name=example-service
 $ kubectl describe svc example-service
 
+
+
+https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/

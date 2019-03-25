@@ -4,3 +4,5 @@ $ kubectl expose deployment nginx --type=NodePort --name=example-service --names
 $ kubectl describe svc example-service
 
 https://kubernetes.io/docs/tasks/configure-pod-container/configure-persistent-volume-storage/
+
+Error from server (Forbidden): error when creating "pv-pod.yaml": pods "task-pv-pod" is forbidden: exceeded quota: best-effort, requested: pods=1, used: pods=0, limited: pods=0

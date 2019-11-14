@@ -1,0 +1,143 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+  namespace: dce-system
+data:
+  upstream-cluster.conf: |
+    upstream http_cluster {
+        server 10.129.31.247:80;
+        server 10.129.31.248:80;
+        server 10.129.31.249:80;
+    }
+     
+    upstream https_cluster {
+        server 10.129.31.247:443;
+        server 10.129.31.248:443;
+        server 10.129.31.249:443;
+    }
+     
+     
+    server {
+        listen 80;
+        server_name 10.129.31.15;
+     
+        charset utf-8;
+     
+        access_log  logs/http_cluster.log  main;
+     
+     
+        location / {
+            proxy_pass http://http_cluster;
+            proxy_redirect off;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+     
+     
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+            }
+     
+    }
+     
+    server {
+        listen 443;
+        server_name 10.129.31.15;
+     
+        charset utf-8;
+        ssl on;
+        ssl_certificate ssl/server.crt;
+        ssl_certificate_key ssl/server.key;
+     
+        access_log  logs/https_cluster.log  main;
+     
+     
+        location / {
+            proxy_pass https://https_cluster;
+            proxy_redirect off;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "Upgrade";
+            }
+     
+     
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+            }
+     
+    }
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: dce-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/hostname
+                  operator: In
+                  values:
+                  - e2e-az1
+                  - e2e-az2
+      imagePullSecrets:
+        - name: zhoufr-registry-secret
+      containers:
+      - name: nginx
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2048Mi
+          requests:
+            cpu: 1000m
+            memory: 2048Mi
+        image: 10.6.1.31/zhoufr/nginx:1.14.2.1
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - mountPath: /usr/local/nginx/conf/vhosts # mount nginx-conf volumn to /etc/nginx
+          readOnly: true
+          name: vhosts-conf
+        - mountPath: /usr/local/nginx/logs
+          name: log
+      volumes:
+      - name: vhosts-conf
+        configMap:
+          name: nginx-conf                        # place ConfigMap `nginx-conf` on /etc/nginx
+          items:
+            - key: upstream-cluster.conf
+              path: ./upstream-cluster.conf       # dig directory
+      - name: log
+        hostPath:
+          path: /logs/current/dce_nginx_loadblance
+          type: Directory
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: dce-system
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app: nginx
